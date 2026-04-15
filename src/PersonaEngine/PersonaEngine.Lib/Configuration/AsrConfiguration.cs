@@ -15,6 +15,21 @@ public record AsrConfiguration
     public float VadMinSpeechDuration { get; init; } = 250f;
 
     public float VadMinSilenceDuration { get; init; } = 200f;
+
+    /// <summary>Primary Whisper model used once the fallback hands off.</summary>
+    public WhisperModel WhisperPrimary { get; init; } = WhisperModel.Turbov3;
+
+    /// <summary>Fast bootstrap Whisper model used while the primary warms up.</summary>
+    public WhisperModel WhisperFallback { get; init; } = WhisperModel.Tiny;
+}
+
+public enum WhisperModel
+{
+    /// <summary>ggml-large-v3-turbo.bin — best accuracy, ~2 GB VRAM.</summary>
+    Turbov3,
+
+    /// <summary>ggml-tiny.en.bin — fastest/smallest, English only.</summary>
+    Tiny
 }
 
 public enum WhisperConfigTemplate

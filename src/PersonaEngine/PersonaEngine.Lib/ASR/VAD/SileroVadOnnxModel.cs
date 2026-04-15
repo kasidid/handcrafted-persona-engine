@@ -1,5 +1,7 @@
 using Microsoft.ML.OnnxRuntime;
 
+using PersonaEngine.Lib.Configuration;
+
 namespace PersonaEngine.Lib.ASR.VAD;
 
 internal class SileroVadOnnxModel : IDisposable
@@ -14,7 +16,7 @@ internal class SileroVadOnnxModel : IDisposable
 
     private readonly long[] stateShape = [2, 1, 128];
 
-    public SileroVadOnnxModel(string modelPath)
+    public SileroVadOnnxModel(string modelPath, OnnxExecutionProvider provider = OnnxExecutionProvider.Cuda)
     {
         var sessionOptions = new SessionOptions {
                                                     EnableMemoryPattern    = true,
@@ -24,8 +26,8 @@ internal class SileroVadOnnxModel : IDisposable
                                                     GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
                                                     LogSeverityLevel       = OrtLoggingLevel.ORT_LOGGING_LEVEL_ERROR
                                                 };
-        
-        sessionOptions.AppendExecutionProvider_CUDA();
+
+        sessionOptions.ApplyProvider(provider);
 
         session    = new InferenceSession(modelPath, sessionOptions);
         runOptions = new RunOptions();

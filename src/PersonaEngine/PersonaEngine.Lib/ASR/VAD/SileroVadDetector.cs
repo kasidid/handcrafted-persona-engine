@@ -20,7 +20,7 @@ internal class SileroVadDetector : IVadDetector
 
     public SileroVadDetector(VadDetectorOptions vadDetectorOptions, SileroVadOptions sileroVadOptions)
     {
-        _model             = new SileroVadOnnxModel(sileroVadOptions.ModelPath);
+        _model             = new SileroVadOnnxModel(sileroVadOptions.ModelPath, sileroVadOptions.Provider);
         _threshold         = sileroVadOptions.Threshold;
         _negThreshold      = _threshold - sileroVadOptions.ThresholdGap;
         _minSpeechSamples  = (int)(16d * vadDetectorOptions.MinSpeechDuration.TotalMilliseconds);

@@ -25,6 +25,8 @@ public class OnnxAudioSynthesizer : IAudioSynthesizer
 
     private readonly IOptionsMonitor<KokoroVoiceOptions> _options;
 
+    private readonly IOptionsMonitor<OnnxProviderOptions> _onnxProvider;
+
     private readonly IKokoroVoiceProvider _voiceProvider;
 
     private bool _disposed;
@@ -38,12 +40,14 @@ public class OnnxAudioSynthesizer : IAudioSynthesizer
         IKokoroVoiceProvider                voiceProvider,
         ITtsCache                           cache,
         IOptionsMonitor<KokoroVoiceOptions> options,
+        IOptionsMonitor<OnnxProviderOptions> onnxProvider,
         ILogger<OnnxAudioSynthesizer>       logger)
     {
         _ittsModelProvider = ittsModelProvider ?? throw new ArgumentNullException(nameof(ittsModelProvider));
         _voiceProvider     = voiceProvider ?? throw new ArgumentNullException(nameof(voiceProvider));
         _cache             = cache ?? throw new ArgumentNullException(nameof(cache));
         _options           = options ?? throw new ArgumentNullException(nameof(options));
+        _onnxProvider      = onnxProvider ?? throw new ArgumentNullException(nameof(onnxProvider));
         _logger            = logger ?? throw new ArgumentNullException(nameof(logger));
 
         // Create throttle to limit concurrent inference operations
@@ -187,15 +191,7 @@ public class OnnxAudioSynthesizer : IAudioSynthesizer
                                                     LogSeverityLevel       = OrtLoggingLevel.ORT_LOGGING_LEVEL_FATAL
                                                 };
 
-        try
-        {
-            sessionOptions.AppendExecutionProvider_CUDA();
-            _logger.LogInformation("CUDA execution provider added successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning("CUDA execution provider not available: {Message}. Using CPU.", ex.Message);
-        }
+        sessionOptions.ApplyProvider(_onnxProvider.CurrentValue.Provider, _logger);
 
         // Get model with retry mechanism
         var        maxRetries    = 3;

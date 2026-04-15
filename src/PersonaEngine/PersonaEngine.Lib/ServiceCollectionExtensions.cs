@@ -98,12 +98,14 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<AsrConfiguration>(configuration.GetSection("Config:Asr"));
         services.Configure<MicrophoneConfiguration>(configuration.GetSection("Config:Microphone"));
+        services.Configure<OnnxProviderOptions>(configuration.GetSection("Config:Onnx"));
 
         services.AddSingleton<IVadDetector>(sp =>
                                             {
                                                 var asrOptions = sp.GetRequiredService<IOptions<AsrConfiguration>>().Value;
+                                                var onnxOptions = sp.GetRequiredService<IOptions<OnnxProviderOptions>>().Value;
 
-                                                var siletroOptions = new SileroVadOptions(ModelUtils.GetModelPath(ModelType.Silero)) { Threshold = asrOptions.VadThreshold, ThresholdGap = asrOptions.VadThresholdGap };
+                                                var siletroOptions = new SileroVadOptions(ModelUtils.GetModelPath(ModelType.Silero)) { Threshold = asrOptions.VadThreshold, ThresholdGap = asrOptions.VadThresholdGap, Provider = onnxOptions.Provider };
 
                                                 var vadOptions = new VadDetectorOptions { MinSpeechDuration = TimeSpan.FromMilliseconds(asrOptions.VadMinSpeechDuration), MinSilenceDuration = TimeSpan.FromMilliseconds(asrOptions.VadMinSilenceDuration) };
 
@@ -127,9 +129,9 @@ public static class ServiceCollectionExtensions
                                                                var realTimeOptions = new RealtimeOptions();
 
                                                                return new RealtimeTranscriptor(
-                                                                                               new WhisperSpeechTranscriptorFactory(ModelUtils.GetModelPath(ModelType.WhisperGgmlTurbov3)),
+                                                                                               new WhisperSpeechTranscriptorFactory(ModelUtils.GetModelPath(WhisperModelMap.ToModelType(asrOptions.WhisperPrimary))),
                                                                                                sp.GetRequiredService<IVadDetector>(),
-                                                                                               new WhisperSpeechTranscriptorFactory(ModelUtils.GetModelPath(ModelType.WhisperGgmlTiny)),
+                                                                                               new WhisperSpeechTranscriptorFactory(ModelUtils.GetModelPath(WhisperModelMap.ToModelType(asrOptions.WhisperFallback))),
                                                                                                realtimeSpeechTranscriptorOptions,
                                                                                                realTimeOptions,
                                                                                                sp.GetRequiredService<ILogger<RealtimeTranscriptor>>());
@@ -192,6 +194,7 @@ public static class ServiceCollectionExtensions
         // Add configuration
         services.Configure<TtsConfiguration>(configuration.GetSection("Config:Tts"));
         services.Configure<KokoroVoiceOptions>(configuration.GetSection("Config:Tts:Voice"));
+        services.Configure<OnnxProviderOptions>(configuration.GetSection("Config:Onnx"));
 
         // Add core TTS components
         services.AddSingleton<ITtsEngine, TtsEngine>();
