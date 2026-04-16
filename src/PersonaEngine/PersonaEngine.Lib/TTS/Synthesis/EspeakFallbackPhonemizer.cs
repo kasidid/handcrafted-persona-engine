@@ -71,6 +71,8 @@ public class EspeakFallbackPhonemizer : IFallbackPhonemizer
 
     private volatile bool _useBritishEnglish;
 
+    private volatile string _currentVoice;
+
     public EspeakFallbackPhonemizer(
         IOptionsMonitor<TtsConfiguration>   ttsConfig,
         IOptionsMonitor<KokoroVoiceOptions> voiceOptions,
@@ -82,14 +84,17 @@ public class EspeakFallbackPhonemizer : IFallbackPhonemizer
 
         _espeakPath        = _ttsConfig.CurrentValue.EspeakPath ?? throw new ArgumentNullException(nameof(ttsConfig.CurrentValue.EspeakPath));
         _useBritishEnglish = _voiceOptions.CurrentValue.UseBritishEnglish;
+        _currentVoice      = _voiceOptions.CurrentValue.DefaultVoice ?? string.Empty;
 
         _voiceOptionsChangeToken = _voiceOptions.OnChange(options =>
                                                           {
                                                               _useBritishEnglish = options.UseBritishEnglish;
-                                                              _logger.LogDebug("Voice options updated: UseBritishEnglish={UseBritishEnglish}", _useBritishEnglish);
+                                                              _currentVoice      = options.DefaultVoice ?? string.Empty;
+                                                              _logger.LogDebug("Voice options updated: Voice={Voice}, UseBritishEnglish={UseBritishEnglish}", _currentVoice, _useBritishEnglish);
                                                               _needProcessReset = true;
 
-                                                              // Clear cache when voice options change
+                                                              // Phoneme set depends on the espeak language we'll restart with,
+                                                              // so cached phonemes from the previous voice are invalid.
                                                               _cache.Clear();
                                                           });
 
@@ -261,8 +266,10 @@ public class EspeakFallbackPhonemizer : IFallbackPhonemizer
                 _espeakProcess = null;
             }
 
-            // Create a new process
-            var language = _useBritishEnglish ? "en-gb" : "en-us";
+            // Create a new process. Espeak language must match the Kokoro voice's
+            // language or non-Latin scripts (JP/ZH/etc.) get phonemized as English
+            // and the model renders garbled audio.
+            var language = LanguageForVoice(_currentVoice, _useBritishEnglish);
             var startInfo = new ProcessStartInfo {
                                                      FileName               = _espeakPath,
                                                      Arguments              = $"--ipa=1 -v {language} -q --tie=^",
@@ -314,6 +321,41 @@ public class EspeakFallbackPhonemizer : IFallbackPhonemizer
         }
 
         return _espeakProcess;
+    }
+
+    /// <summary>
+    ///     Maps a Kokoro voice ID to the espeak-ng language code its phonemes were trained on.
+    ///     Kokoro's naming convention encodes language in the leading character: a=American,
+    ///     b=British, e=Spanish, f=French, h=Hindi, i=Italian, j=Japanese, p=Portuguese, z=Chinese.
+    ///     Voices using an explicit "en_" prefix (e.g. en_custom) stay on the existing
+    ///     UseBritishEnglish toggle to avoid regressing custom-trained English voices.
+    /// </summary>
+    private static string LanguageForVoice(string voiceId, bool useBritishEnglish)
+    {
+        var defaultEn = useBritishEnglish ? "en-gb" : "en-us";
+
+        if ( string.IsNullOrEmpty(voiceId) )
+        {
+            return defaultEn;
+        }
+
+        if ( voiceId.StartsWith("en_", StringComparison.OrdinalIgnoreCase) )
+        {
+            return defaultEn;
+        }
+
+        return char.ToLowerInvariant(voiceId[0]) switch {
+            'a' => "en-us",
+            'b' => "en-gb",
+            'e' => "es",
+            'f' => "fr-fr",
+            'h' => "hi",
+            'i' => "it",
+            'j' => "ja",
+            'p' => "pt-br",
+            'z' => "cmn",
+            _   => defaultEn
+        };
     }
 
     /// <summary>
