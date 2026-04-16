@@ -122,6 +122,31 @@ public class ImGuiController : IDisposable
             fontBuilder.AddFontFromFileTTF(emojiFontPath, 14f, [0x1, 0x1FFFF]);
         }
 
+        // Merge a CJK fallback so Japanese/Chinese/Korean glyphs render in the
+        // avatar UI. Montserrat (the primary font) has no CJK coverage, so
+        // without this every kana/kanji rasterizes as "?". Yu Gothic ships on
+        // Win10+; on platforms where it's missing we degrade silently.
+        try
+        {
+            var fontsDir    = Environment.GetFolderPath(Environment.SpecialFolder.Fonts);
+            var cjkFontPath = System.IO.Path.Combine(fontsDir, "YuGothM.ttc");
+            if ( System.IO.File.Exists(cjkFontPath) )
+            {
+                fontBuilder.SetOption(config =>
+                                      {
+                                          config.FontBuilderFlags &= ~(uint)ImGuiFreeTypeBuilderFlags.LoadColor;
+                                          config.MergeMode        =  true;
+                                          config.PixelSnapH       =  true;
+                                      });
+
+                fontBuilder.AddFontFromFileTTF(cjkFontPath, 18f, [0x3000, 0xFFEF]);
+            }
+        }
+        catch
+        {
+            // Non-fatal: avatar UI still renders, CJK just falls back to "?"
+        }
+
         _ = fontBuilder.Build();
         io.Fonts.Build();
 
