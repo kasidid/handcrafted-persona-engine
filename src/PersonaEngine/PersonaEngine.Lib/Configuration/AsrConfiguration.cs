@@ -21,6 +21,26 @@ public record AsrConfiguration
 
     /// <summary>Fast bootstrap Whisper model used while the primary warms up.</summary>
     public WhisperModel WhisperFallback { get; init; } = WhisperModel.Tiny;
+
+    /// <summary>
+    ///     If <c>true</c>, Whisper auto-detects the spoken language per segment instead of
+    ///     forcing <see cref="Language" />. Required for multilingual transcription
+    ///     (e.g. mixing English, Japanese, Thai in the same conversation).
+    /// </summary>
+    public bool LanguageAutoDetect { get; init; } = false;
+
+    /// <summary>
+    ///     If <c>true</c> (and <see cref="LanguageAutoDetect" /> is enabled), the language
+    ///     is detected only on the first segment and reused for the rest of the session.
+    ///     Faster but locks the language; leave <c>false</c> for true multilingual sessions.
+    /// </summary>
+    public bool AutodetectLanguageOnce { get; init; } = false;
+
+    /// <summary>
+    ///     IETF BCP-47 language tag used when <see cref="LanguageAutoDetect" /> is <c>false</c>.
+    ///     Default <c>en-US</c>. Resolved via <see cref="System.Globalization.CultureInfo.GetCultureInfo(string)" />.
+    /// </summary>
+    public string Language { get; init; } = "en-US";
 }
 
 public enum WhisperModel
